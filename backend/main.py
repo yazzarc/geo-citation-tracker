@@ -10,20 +10,6 @@ load_dotenv()
 
 app = FastAPI()
 
-@app.middleware("http")
-async def add_cors_headers(request: Request, call_next):
-    if request.method == "OPTIONS":
-        response = JSONResponse(content={}, status_code=200)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
-
 client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 MODELS = {
@@ -50,8 +36,22 @@ async def query_model(brand, query, model_name):
     }
 
 @app.get("/")
-def root():
-    return {"status": "AI Citation Tracker API Running"}
+async def root():
+    return JSONResponse(
+        content={"status": "AI Citation Tracker API Running"},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
+@app.options("/track")
+async def options_track():
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.post("/track")
 async def track(req: TrackRequest):
@@ -74,4 +74,7 @@ async def track(req: TrackRequest):
 
         results.append(brand_data)
 
-    return {"results": results}
+    return JSONResponse(
+        content={"results": results},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
