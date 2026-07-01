@@ -16,7 +16,7 @@ function App() {
     const modelList = ["LLaMA 3.3", "LLaMA 3.1",]
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/track", {
+      const res = await fetch("https://geo-citation-tracker-production.up.railway.app/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brands: brandList, queries: queryList, models: modelList })
