@@ -23,17 +23,32 @@ class TrackRequest(BaseModel):
     models: list[str]
 
 async def query_model(brand, query, model_name):
-    response = await client.chat.completions.create(
-        model=MODELS[model_name],
-        messages=[{"role": "user", "content": query}]
-    )
-    answer = response.choices[0].message.content
-    is_mentioned = brand.lower() in answer.lower()
-    return {
-        "query": query,
-        "mentioned": is_mentioned,
-        "response": answer[:300]
-    }
+    try:
+        response = await client.chat.completions.create(
+            model=MODELS[model_name],
+            messages=[{"role": "user", "content": query}]
+        )
+        answer = response.choices[0].message.content
+        is_mentioned = brand.lower() in answer.lower()
+        return {
+            "query": query,
+            "mentioned": is_mentioned,
+            "response": answer[:300],
+            "error": None
+        }
+    except Exception as e:
+        error_msg = str(e)
+        if "rate_limit" in error_msg.lower() or "429" in error_msg:
+            error_text = "Rate limit reached. Please try again in a few minutes."
+        else:
+            error_text = "Something went wrong with this query."
+        return {
+            "query": query,
+            "mentioned": False,
+            "response": "",
+            "error": error_text
+        }
+    
 
 @app.get("/")
 async def root():

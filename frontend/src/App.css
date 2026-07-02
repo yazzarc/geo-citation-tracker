@@ -128,4 +128,31 @@ button:disabled {
   height: 100%;
   border-radius: 20px;
   transition: width 0.5s ease;
+}.error-banner {
+  background: #2a1515;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.rate-limit-note {
+  background: #2a2010;
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.csv-btn {
+  margin-top: 1.5rem;
+  background: #22c55e;
+}
+
+.csv-btn:hover {
+  background: #16a34a;
 }
