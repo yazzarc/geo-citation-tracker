@@ -5,8 +5,8 @@ import './App.css'
 const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1"]
 
 function App() {
-  const [brands, setBrands] = useState("Mamaearth, Plum, Minimalist")
-  const [queries, setQueries] = useState("which skincare brands should I use in India\nrecommend me Indian skincare brands\ntop affordable skincare brands India")
+  const [brands, setBrands] = useState("")
+const [queries, setQueries] = useState("")
   const [selectedModels, setSelectedModels] = useState(["LLaMA 3.3", "LLaMA 3.1"])
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
