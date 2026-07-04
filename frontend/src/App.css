@@ -156,3 +156,85 @@ button:disabled {
 .csv-btn:hover {
   background: #16a34a;
 }
+.model-selector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.model-chip {
+  background: #0f0f0f;
+  color: #888;
+  border: 1px solid #333;
+  padding: 0.5rem 1.2rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: auto;
+  transition: all 0.2s;
+}
+
+.model-chip.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.model-chip:hover {
+  border-color: #6366f1;
+}
+
+.sentiment-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.sentiment-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+
+.sentiment-emoji {
+  font-size: 0.85rem;
+}
+
+.sentiment-label {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.error-banner {
+  background: #2a1515;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.rate-limit-note {
+  background: #2a2010;
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.csv-btn {
+  margin-top: 1.5rem;
+  background: #22c55e;
+}
+
+.csv-btn:hover {
+  background: #16a34a;
+}

@@ -30,9 +30,23 @@ async def query_model(brand, query, model_name):
         )
         answer = response.choices[0].message.content
         is_mentioned = brand.lower() in answer.lower()
+
+        sentiment = "neutral"
+        if is_mentioned:
+            positive_words = ["best", "recommend", "great", "top", "excellent", "good", "popular", "loved", "trusted", "effective"]
+            negative_words = ["avoid", "bad", "worst", "poor", "harmful", "dangerous", "overpriced", "disappointing"]
+            answer_lower = answer.lower()
+            pos_score = sum(1 for w in positive_words if w in answer_lower)
+            neg_score = sum(1 for w in negative_words if w in answer_lower)
+            if pos_score > neg_score:
+                sentiment = "positive"
+            elif neg_score > pos_score:
+                sentiment = "negative"
+
         return {
             "query": query,
             "mentioned": is_mentioned,
+            "sentiment": sentiment,
             "response": answer[:300],
             "error": None
         }
@@ -41,10 +55,11 @@ async def query_model(brand, query, model_name):
         if "rate_limit" in error_msg.lower() or "429" in error_msg:
             error_text = "Rate limit reached. Please try again in a few minutes."
         else:
-            error_text = "Something went wrong with this query."
+            error_text = "Something went wrong."
         return {
             "query": query,
             "mentioned": False,
+            "sentiment": "neutral",
             "response": "",
             "error": error_text
         }
