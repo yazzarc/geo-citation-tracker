@@ -141,34 +141,85 @@ const [queries, setQueries] = useState("")
       {results && (
         <>
           {/* BAR CHART */}
-          <div className="chart-section">
-            <h3>📊 Visibility Comparison</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                <XAxis dataKey="brand" tick={{ fill: '#ccc', fontSize: 12 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: '#ccc', fontSize: 12 }} unit="%" />
-                <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px' }}
-                  labelStyle={{ color: '#fff' }}
-                  itemStyle={{ color: '#ccc' }}
-                  formatter={(value) => [`${value}%`]}
-                />
-                {selectedModels.map(model => (
-                  <Bar key={model} dataKey={model} fill={modelColors[model]} radius={[4, 4, 0, 0]} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+<div className="chart-section">
+  <div className="chart-header">
+    <h3>📊 AI Visibility Comparison</h3>
+    <p className="chart-sub">Visibility score across AI models — higher is better</p>
+  </div>
 
-            {/* LEGEND */}
-            <div className="chart-legend">
-              {selectedModels.map(model => (
-                <div key={model} className="legend-item">
-                  <span className="legend-dot" style={{ background: modelColors[model] }}></span>
-                  <span>{model}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+  <ResponsiveContainer width="100%" height={320}>
+    <BarChart
+      data={chartData}
+      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+      barCategoryGap="30%"
+      barGap={4}
+    >
+      <XAxis
+        dataKey="brand"
+        tick={{ fill: '#aaa', fontSize: 13, fontWeight: 600 }}
+        axisLine={{ stroke: '#2a2a2a' }}
+        tickLine={false}
+      />
+      <YAxis
+        domain={[0, 100]}
+        tick={{ fill: '#666', fontSize: 11 }}
+        axisLine={false}
+        tickLine={false}
+        unit="%"
+      />
+      <Tooltip
+        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+        contentStyle={{
+          background: '#111',
+          border: '1px solid #2a2a2a',
+          borderRadius: '10px',
+          padding: '10px 16px'
+        }}
+        labelStyle={{ color: '#fff', fontWeight: 700, marginBottom: 6 }}
+        itemStyle={{ color: '#ccc', fontSize: 13 }}
+        formatter={(value, name) => [`${value}%`, name]}
+      />
+      {selectedModels.map(model => (
+        <Bar
+          key={model}
+          dataKey={model}
+          fill={modelColors[model]}
+          radius={[6, 6, 0, 0]}
+          maxBarSize={60}
+        >
+          {chartData.map((entry, index) => (
+            <Cell
+              key={index}
+              fill={entry[model] >= 60 ? '#22c55e' : entry[model] >= 30 ? '#f59e0b' : modelColors[model]}
+              fillOpacity={0.9}
+            />
+          ))}
+        </Bar>
+      ))}
+    </BarChart>
+  </ResponsiveContainer>
+
+  <div className="chart-legend">
+    {selectedModels.map(model => (
+      <div key={model} className="legend-item">
+        <span className="legend-dot" style={{ background: modelColors[model] }}></span>
+        <span>{model}</span>
+      </div>
+    ))}
+    <div className="legend-item">
+      <span className="legend-dot" style={{ background: '#22c55e' }}></span>
+      <span>60%+ Good</span>
+    </div>
+    <div className="legend-item">
+      <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
+      <span>30-59% Medium</span>
+    </div>
+    <div className="legend-item">
+      <span className="legend-dot" style={{ background: '#6366f1' }}></span>
+      <span>0-29% Low</span>
+    </div>
+  </div>
+</div>
 
           {/* BRAND CARDS */}
           <div className="results">
