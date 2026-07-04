@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import './App.css'
 
 const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1"]
@@ -63,6 +64,17 @@ function App() {
     return "#f59e0b"
   }
 
+  const getChartData = () => {
+    if (!results) return []
+    return results.map(brandData => {
+      const row = { brand: brandData.brand }
+      Object.entries(brandData.models).forEach(([modelName, data]) => {
+        row[modelName] = data.score
+      })
+      return row
+    })
+  }
+
   const downloadCSV = () => {
     if (!results) return
     let csv = "Brand,Model,Query,Mentioned,Sentiment,Response\n"
@@ -84,6 +96,9 @@ function App() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const chartData = getChartData()
+  const modelColors = { "LLaMA 3.3": "#6366f1", "LLaMA 3.1": "#22c55e" }
 
   return (
     <div className="app">
@@ -117,7 +132,7 @@ function App() {
         </div>
 
         <button onClick={trackNow} disabled={loading}>
-          {loading ? "Tracking..." : "🚀 Track Now"}
+          {loading ? "⏳ Tracking..." : "🚀 Track Now"}
         </button>
       </div>
 
@@ -125,6 +140,37 @@ function App() {
 
       {results && (
         <>
+          {/* BAR CHART */}
+          <div className="chart-section">
+            <h3>📊 Visibility Comparison</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                <XAxis dataKey="brand" tick={{ fill: '#ccc', fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#ccc', fontSize: 12 }} unit="%" />
+                <Tooltip
+                  contentStyle={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px' }}
+                  labelStyle={{ color: '#fff' }}
+                  itemStyle={{ color: '#ccc' }}
+                  formatter={(value) => [`${value}%`]}
+                />
+                {selectedModels.map(model => (
+                  <Bar key={model} dataKey={model} fill={modelColors[model]} radius={[4, 4, 0, 0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* LEGEND */}
+            <div className="chart-legend">
+              {selectedModels.map(model => (
+                <div key={model} className="legend-item">
+                  <span className="legend-dot" style={{ background: modelColors[model] }}></span>
+                  <span>{model}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* BRAND CARDS */}
           <div className="results">
             {results.map((brandData, i) => (
               <div className="brand-card" key={i}>
@@ -138,7 +184,6 @@ function App() {
                     <div className="progress-bar">
                       <div className="progress-fill" style={{ width: `${data.score}%`, backgroundColor: getColor(data.score) }} />
                     </div>
-
                     {data.details && (
                       <div className="sentiment-row">
                         {data.details.map((d, idx) => (
