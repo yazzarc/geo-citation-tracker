@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import './App.css'
 
-const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1"]
+const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1", "LLaMA 4 Scout"]
 
 function App() {
   const [brands, setBrands] = useState("")
@@ -98,7 +98,11 @@ const [queries, setQueries] = useState("")
   }
 
   const chartData = getChartData()
-  const modelColors = { "LLaMA 3.3": "#6366f1", "LLaMA 3.1": "#22c55e" }
+ const modelColors = { 
+  "LLaMA 3.3": "#6366f1", 
+  "LLaMA 3.1": "#22c55e",
+  "LLaMA 4 Scout": "#f59e0b"
+}
 
   return (
     <div className="app">
