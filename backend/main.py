@@ -87,7 +87,41 @@ CONTENT_GAP: <1 sentence: what kind of content/positioning the ignored brand(s) 
         return None
     
 
-@app.get("/")
+async def get_topic(query, model_name):
+    """Extract a short attribute/topic tag for a query, e.g. 'best running shoes
+    under 5000' -> 'running'. Used to group mentions into strengths/weaknesses."""
+    try:
+        response = await client.chat.completions.create(
+            model=MODELS[model_name],
+            messages=[{"role": "user", "content": f"""Query: "{query}"
+In 1-2 lowercase words, name the single core attribute or use-case this query is about (e.g. "running", "waterproof", "budget", "durability", "marathon"). Reply with ONLY the words, nothing else."""}]
+        )
+        tag = response.choices[0].message.content.strip().lower()
+        tag = tag.strip('."\'').split("\n")[0]
+        return tag[:30] if tag else "general"
+    except Exception:
+        return "general"
+
+
+def build_weakness_profile(brand, query_topics, all_details_by_query):
+    """
+    Competitor Weakness Detector: for a brand, bucket each query's topic into
+    'strong' (brand was mentioned for that topic in at least one model) or
+    'weak' (brand was never mentioned for that topic).
+    """
+    strong, weak = set(), set()
+    for query, topic in query_topics.items():
+        mentioned_anywhere = any(d["mentioned"] for d in all_details_by_query[query] if d["brand"] == brand)
+        if mentioned_anywhere:
+            strong.add(topic)
+        else:
+            weak.add(topic)
+    # a topic shouldn't be both — if mentioned in even one model call, it counts as strong
+    weak -= strong
+    return {"strong": sorted(strong), "weak": sorted(weak)}
+
+
+
 async def root():
     return JSONResponse(
         content={"status": "AI Citation Tracker API Running"},
@@ -116,7 +150,7 @@ async def process_query(query, model_name, brands, include_replay):
             error_text = "Rate limit reached. Please try again in a few minutes."
         else:
             error_text = "Something went wrong."
-        return {b: {"query": query, "mentioned": False, "sentiment": "neutral", "response": "", "error": error_text, "replay": None} for b in brands}
+        return {b: {"brand": b, "query": query, "mentioned": False, "sentiment": "neutral", "response": "", "error": error_text, "replay": None} for b in brands}
 
     answer_lower = answer.lower()
     mentioned_brands = [b for b in brands if b.lower() in answer_lower]
@@ -129,6 +163,7 @@ async def process_query(query, model_name, brands, include_replay):
     for b in brands:
         is_mentioned = b in mentioned_brands
         per_brand[b] = {
+            "brand": b,
             "query": query,
             "mentioned": is_mentioned,
             "sentiment": score_sentiment(answer_lower) if is_mentioned else "neutral",
@@ -140,12 +175,17 @@ async def process_query(query, model_name, brands, include_replay):
 
 
 @app.post("/track")
-async def track(req: TrackRequest, include_replay: bool = True):
+async def track(req: TrackRequest, include_replay: bool = True, include_weakness: bool = True):
     results = {b: {"brand": b, "models": {}} for b in req.brands}
+    # collects every detail across all models, keyed by query, for the weakness profile
+    all_details_by_query = {q: [] for q in req.queries}
 
     for model_name in req.models:
         tasks = [process_query(query, model_name, req.brands, include_replay) for query in req.queries]
         query_results = await asyncio.gather(*tasks)  # list of {brand: detail}, one per query
+
+        for query, qr in zip(req.queries, query_results):
+            all_details_by_query[query].extend(qr.values())
 
         for brand in req.brands:
             details = [qr[brand] for qr in query_results]
@@ -155,6 +195,16 @@ async def track(req: TrackRequest, include_replay: bool = True):
                 "score": round(score),
                 "details": details
             }
+
+    if include_weakness and req.queries:
+        topic_model = req.models[0]
+        unique_queries = list(dict.fromkeys(req.queries))
+        topic_tasks = [get_topic(q, topic_model) for q in unique_queries]
+        topics = await asyncio.gather(*topic_tasks)
+        query_topics = dict(zip(unique_queries, topics))
+
+        for brand in req.brands:
+            results[brand]["weakness_profile"] = build_weakness_profile(brand, query_topics, all_details_by_query)
 
     return JSONResponse(
         content={"results": list(results.values())},
