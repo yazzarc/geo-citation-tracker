@@ -423,6 +423,101 @@ button:disabled {
   font-size: 0.78rem;
 }
 
+.results-float {
+  margin-top: 2rem;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (min-width: 1400px) {
+  .app {
+    max-width: none;
+    padding-left: max(2rem, calc(50% - 450px));
+  }
+
+  .results-float {
+    position: fixed;
+    top: 140px;
+    left: calc(50% + 470px);
+    width: 400px;
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    margin-top: 0;
+    animation: popIn 0.35s ease-out;
+    padding-right: 0.5rem;
+  }
+
+  .results-float::-webkit-scrollbar { width: 6px; }
+  .results-float::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+}
+
+.insights-toggle-btn {
+  background: transparent;
+  border: 1px dashed var(--amber);
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  padding: 0.7rem 1.2rem;
+  margin-bottom: 1.4rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.insights-toggle-btn:hover {
+  background: rgba(255,176,32,0.08);
+}
+
+.weakness-panel {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 1.2rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.weakness-title {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.2rem;
+}
+
+.weakness-col {
+  flex: 1;
+  min-width: 110px;
+}
+
+.weakness-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.weakness-label.strong { color: var(--teal); }
+.weakness-label.weak { color: var(--red); }
+
+.weakness-tag {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 2px 0;
+  text-transform: capitalize;
+}
+
+.weakness-tag.strong { color: var(--teal); }
+.weakness-tag.weak { color: var(--red); opacity: 0.9; }
+.weakness-tag.empty { color: var(--muted); font-style: italic; text-transform: none; }
+
 .csv-btn {
   margin-top: 1.5rem;
   background: var(--teal);
