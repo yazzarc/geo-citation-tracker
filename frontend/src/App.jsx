@@ -12,6 +12,7 @@ const [queries, setQueries] = useState("")
   const [results, setResults] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
   const [openReplay, setOpenReplay] = useState(null) // "brand|model|idx" key of the open chip
+  const [showInsights, setShowInsights] = useState(false)
 
   const toggleModel = (model) => {
     setSelectedModels(prev =>
@@ -148,7 +149,7 @@ const [queries, setQueries] = useState("")
       {errorMsg && <div className="error-banner">⚠️ {errorMsg}</div>}
 
       {results && (
-        <>
+        <div className="results-float">
           {/* BAR CHART */}
 <div className="chart-section">
   <div className="chart-header">
@@ -231,11 +232,42 @@ const [queries, setQueries] = useState("")
   </div>
 </div>
 
+          {/* INSIGHTS TOGGLE */}
+          <button className="insights-toggle-btn" onClick={() => setShowInsights(v => !v)}>
+            {showInsights ? "▲ Hide AI Insights (Weakness + Citation Replay)" : "🔍 Show AI Insights (Weakness + Citation Replay)"}
+          </button>
+
           {/* BRAND CARDS */}
           <div className="results">
             {results.map((brandData, i) => (
               <div className="brand-card" key={i}>
                 <h2>{brandData.brand}</h2>
+
+                {showInsights && brandData.weakness_profile && (
+                  <div className="weakness-panel">
+                    <div className="weakness-title">Coverage breakdown</div>
+                    <div className="weakness-col">
+                      <span className="weakness-label strong">Strong</span>
+                      {brandData.weakness_profile.strong.length > 0 ? (
+                        brandData.weakness_profile.strong.map((tag, ti) => (
+                          <div key={ti} className="weakness-tag strong">✓ {tag}</div>
+                        ))
+                      ) : (
+                        <div className="weakness-tag empty">none yet</div>
+                      )}
+                    </div>
+                    <div className="weakness-col">
+                      <span className="weakness-label weak">Weak</span>
+                      {brandData.weakness_profile.weak.length > 0 ? (
+                        brandData.weakness_profile.weak.map((tag, ti) => (
+                          <div key={ti} className="weakness-tag weak">✗ {tag}</div>
+                        ))
+                      ) : (
+                        <div className="weakness-tag empty">none</div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {Object.entries(brandData.models).map(([modelName, data]) => (
                   <div className="model-row" key={modelName}>
                     <div className="model-header">
@@ -254,18 +286,18 @@ const [queries, setQueries] = useState("")
                             <div key={idx} className="replay-wrap">
                               <div
                                 className="sentiment-chip"
-                                style={{ borderColor: d.mentioned ? getSentimentColor(d.sentiment) : '#333', cursor: d.replay ? 'pointer' : 'default' }}
-                                onClick={() => d.replay && setOpenReplay(isOpen ? null : key)}
+                                style={{ borderColor: d.mentioned ? getSentimentColor(d.sentiment) : '#333', cursor: (showInsights && d.replay) ? 'pointer' : 'default' }}
+                                onClick={() => showInsights && d.replay && setOpenReplay(isOpen ? null : key)}
                                 title={d.query}
                               >
                                 <span className="sentiment-emoji">{d.mentioned ? getSentimentEmoji(d.sentiment) : '➖'}</span>
                                 <span className="sentiment-label" style={{ color: d.mentioned ? getSentimentColor(d.sentiment) : '#666' }}>
                                   {d.mentioned ? d.sentiment : 'not mentioned'}
                                 </span>
-                                {d.replay && <span className="replay-icon">{isOpen ? '▲' : '🔁'}</span>}
+                                {showInsights && d.replay && <span className="replay-icon">{isOpen ? '▲' : '🔁'}</span>}
                               </div>
 
-                              {isOpen && d.replay && (
+                              {showInsights && isOpen && d.replay && (
                                 <div className="replay-panel">
                                   <div className="replay-badge">AI Citation Replay · reasoning rationale, not verified sources</div>
                                   <div className="replay-query">"{d.query}"</div>
@@ -289,7 +321,7 @@ const [queries, setQueries] = useState("")
           <button className="csv-btn" onClick={downloadCSV}>
             📥 Download CSV Report
           </button>
-        </>
+        </div>
       )}
     </div>
   )
