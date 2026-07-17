@@ -11,6 +11,7 @@ const [queries, setQueries] = useState("")
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [openReplay, setOpenReplay] = useState(null) // "brand|model|idx" key of the open chip
 
   const toggleModel = (model) => {
     setSelectedModels(prev =>
@@ -241,14 +242,37 @@ const [queries, setQueries] = useState("")
                     </div>
                     {data.details && (
                       <div className="sentiment-row">
-                        {data.details.map((d, idx) => (
-                          <div key={idx} className="sentiment-chip" style={{ borderColor: d.mentioned ? getSentimentColor(d.sentiment) : '#333' }}>
-                            <span className="sentiment-emoji">{d.mentioned ? getSentimentEmoji(d.sentiment) : '➖'}</span>
-                            <span className="sentiment-label" style={{ color: d.mentioned ? getSentimentColor(d.sentiment) : '#666' }}>
-                              {d.mentioned ? d.sentiment : 'not mentioned'}
-                            </span>
-                          </div>
-                        ))}
+                        {data.details.map((d, idx) => {
+                          const key = `${brandData.brand}|${modelName}|${idx}`
+                          const isOpen = openReplay === key
+                          return (
+                            <div key={idx} className="replay-wrap">
+                              <div
+                                className="sentiment-chip"
+                                style={{ borderColor: d.mentioned ? getSentimentColor(d.sentiment) : '#333', cursor: d.replay ? 'pointer' : 'default' }}
+                                onClick={() => d.replay && setOpenReplay(isOpen ? null : key)}
+                                title={d.query}
+                              >
+                                <span className="sentiment-emoji">{d.mentioned ? getSentimentEmoji(d.sentiment) : '➖'}</span>
+                                <span className="sentiment-label" style={{ color: d.mentioned ? getSentimentColor(d.sentiment) : '#666' }}>
+                                  {d.mentioned ? d.sentiment : 'not mentioned'}
+                                </span>
+                                {d.replay && <span className="replay-icon">{isOpen ? '▲' : '🔁'}</span>}
+                              </div>
+
+                              {isOpen && d.replay && (
+                                <div className="replay-panel">
+                                  <div className="replay-badge">AI Citation Replay · reasoning rationale, not verified sources</div>
+                                  <div className="replay-query">"{d.query}"</div>
+                                  <div className="replay-row"><strong>Thinking:</strong> {d.replay.thinking || '—'}</div>
+                                  <div className="replay-row"><strong>Why selected:</strong> {d.replay.selected || '—'}</div>
+                                  <div className="replay-row"><strong>Why ignored:</strong> {d.replay.ignored || '—'}</div>
+                                  <div className="replay-row"><strong>Content gap:</strong> {d.replay.content_gap || '—'}</div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
