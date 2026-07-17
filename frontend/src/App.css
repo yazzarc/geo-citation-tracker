@@ -282,3 +282,50 @@ button:disabled {
   font-size: 0.85rem;
   margin-top: 4px;
 }
+
+.replay-wrap {
+  width: 100%;
+}
+
+.replay-icon {
+  margin-left: 4px;
+  font-size: 0.75rem;
+}
+
+.replay-panel {
+  margin-top: 6px;
+  margin-bottom: 4px;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-left: 3px solid #6366f1;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  font-size: 0.82rem;
+  color: #ccc;
+  width: 100%;
+}
+
+.replay-badge {
+  color: #f59e0b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+}
+
+.replay-query {
+  color: #888;
+  font-style: italic;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.replay-row {
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+}
+
+.replay-row strong {
+  color: #fff;
+}
