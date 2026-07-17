@@ -436,13 +436,14 @@ button:disabled {
   .app {
     max-width: none;
     padding-left: max(2rem, calc(50% - 450px));
+    padding-right: 440px;
   }
 
   .results-float {
     position: fixed;
     top: 140px;
-    left: calc(50% + 470px);
-    width: 400px;
+    right: 2rem;
+    width: 380px;
     max-height: calc(100vh - 180px);
     overflow-y: auto;
     margin-top: 0;
