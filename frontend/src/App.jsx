@@ -48,9 +48,9 @@ const [queries, setQueries] = useState("")
   }
 
   const getColor = (score) => {
-    if (score >= 60) return "#22c55e"
-    if (score >= 30) return "#f59e0b"
-    return "#ef4444"
+    if (score >= 60) return "#4fd1ae"
+    if (score >= 30) return "#ffb020"
+    return "#ff5d5d"
   }
 
   const getSentimentEmoji = (sentiment) => {
@@ -60,9 +60,9 @@ const [queries, setQueries] = useState("")
   }
 
   const getSentimentColor = (sentiment) => {
-    if (sentiment === "positive") return "#22c55e"
-    if (sentiment === "negative") return "#ef4444"
-    return "#f59e0b"
+    if (sentiment === "positive") return "#4fd1ae"
+    if (sentiment === "negative") return "#ff5d5d"
+    return "#ffb020"
   }
 
   const getChartData = () => {
@@ -100,15 +100,19 @@ const [queries, setQueries] = useState("")
 
   const chartData = getChartData()
  const modelColors = { 
-  "LLaMA 3.3": "#6366f1", 
-  "LLaMA 3.1": "#22c55e",
-  "LLaMA 4 Scout": "#f59e0b"
+  "LLaMA 3.3": "#ffb020", 
+  "LLaMA 3.1": "#4fd1ae",
+  "LLaMA 4 Scout": "#e8874a"
 }
 
   return (
     <div className="app">
-      <h1>🔍 AI Citation Tracker</h1>
-      <p className="subtitle">Track your brand visibility across AI models</p>
+      <div className="app-header">
+        <div className="eyebrow"><span className="dot"></span>Live signal tracking</div>
+        <h1>AI Citation Tracker</h1>
+        <p className="subtitle">Track your brand visibility across AI models</p>
+        <div className="scan-rule"></div>
+      </div>
 
       <div className="input-section">
         <div className="input-group">
@@ -148,7 +152,7 @@ const [queries, setQueries] = useState("")
           {/* BAR CHART */}
 <div className="chart-section">
   <div className="chart-header">
-    <h3>📊 AI Visibility Comparison</h3>
+    <h3>AI Visibility Comparison</h3>
     <p className="chart-sub">Visibility score across AI models — higher is better</p>
   </div>
 
@@ -161,27 +165,28 @@ const [queries, setQueries] = useState("")
     >
       <XAxis
         dataKey="brand"
-        tick={{ fill: '#aaa', fontSize: 13, fontWeight: 600 }}
-        axisLine={{ stroke: '#2a2a2a' }}
+        tick={{ fill: '#8a9186', fontSize: 13, fontWeight: 600, fontFamily: 'IBM Plex Mono' }}
+        axisLine={{ stroke: '#23291f' }}
         tickLine={false}
       />
       <YAxis
         domain={[0, 100]}
-        tick={{ fill: '#666', fontSize: 11 }}
+        tick={{ fill: '#8a9186', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
         axisLine={false}
         tickLine={false}
         unit="%"
       />
       <Tooltip
-        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+        cursor={{ fill: 'rgba(255,176,32,0.04)' }}
         contentStyle={{
-          background: '#111',
-          border: '1px solid #2a2a2a',
-          borderRadius: '10px',
-          padding: '10px 16px'
+          background: '#0e120f',
+          border: '1px solid #23291f',
+          borderRadius: '6px',
+          padding: '10px 16px',
+          fontFamily: 'IBM Plex Mono'
         }}
-        labelStyle={{ color: '#fff', fontWeight: 700, marginBottom: 6 }}
-        itemStyle={{ color: '#ccc', fontSize: 13 }}
+        labelStyle={{ color: '#f2ede2', fontWeight: 700, marginBottom: 6 }}
+        itemStyle={{ color: '#cfd3c9', fontSize: 13 }}
         formatter={(value, name) => [`${value}%`, name]}
       />
       {selectedModels.map(model => (
@@ -195,7 +200,7 @@ const [queries, setQueries] = useState("")
           {chartData.map((entry, index) => (
             <Cell
               key={index}
-              fill={entry[model] >= 60 ? '#22c55e' : entry[model] >= 30 ? '#f59e0b' : modelColors[model]}
+              fill={entry[model] >= 60 ? '#4fd1ae' : entry[model] >= 30 ? '#ffb020' : modelColors[model]}
               fillOpacity={0.9}
             />
           ))}
@@ -212,15 +217,15 @@ const [queries, setQueries] = useState("")
       </div>
     ))}
     <div className="legend-item">
-      <span className="legend-dot" style={{ background: '#22c55e' }}></span>
+      <span className="legend-dot" style={{ background: '#4fd1ae' }}></span>
       <span>60%+ Good</span>
     </div>
     <div className="legend-item">
-      <span className="legend-dot" style={{ background: '#f59e0b' }}></span>
+      <span className="legend-dot" style={{ background: '#ffb020' }}></span>
       <span>30-59% Medium</span>
     </div>
     <div className="legend-item">
-      <span className="legend-dot" style={{ background: '#6366f1' }}></span>
+      <span className="legend-dot" style={{ background: '#e8874a' }}></span>
       <span>0-29% Low</span>
     </div>
   </div>
