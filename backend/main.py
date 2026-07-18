@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from groq import AsyncGroq
 from dotenv import load_dotenv
 import os
 import asyncio
+import io
+from pypdf import PdfReader
 
 load_dotenv()
 
@@ -122,7 +124,140 @@ def build_weakness_profile(brand, query_topics, all_details_by_query):
 
 
 
-async def root():
+def extract_text(file_bytes, filename):
+    if filename.lower().endswith(".pdf"):
+        reader = PdfReader(io.BytesIO(file_bytes))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    else:
+        text = file_bytes.decode("utf-8", errors="ignore")
+    return text.strip()[:6000]  # cap length to keep prompts reasonable
+
+
+async def generate_likely_queries(content, model_name):
+    """From uploaded content, guess 4-5 real search queries people would actually
+    type into an AI chat that this content is relevant to."""
+    prompt = f"""Here is a piece of content (blog/article):
+\"\"\"{content[:3000]}\"\"\"
+
+List 4-5 realistic questions a person might ask an AI assistant (like ChatGPT) where
+this content, or the brand/product it discusses, would ideally come up as an answer.
+Reply with ONLY the questions, one per line, no numbering, no extra text."""
+    try:
+        response = await client.chat.completions.create(
+            model=MODELS[model_name],
+            messages=[{"role": "user", "content": prompt}]
+        )
+        lines = [l.strip("-• ").strip() for l in response.choices[0].message.content.splitlines() if l.strip()]
+        return lines[:5]
+    except Exception:
+        return []
+
+
+async def extract_core_subject(content, model_name):
+    """Pull out the brand/product name and 3-5 key claims/keywords from the content,
+    used to check whether simulated answers actually reflect this content."""
+    prompt = f"""Content:
+\"\"\"{content[:3000]}\"\"\"
+
+Reply in exactly this format:
+SUBJECT: <the main brand or product name this content is about, 1-3 words>
+KEYWORDS: <3-5 comma-separated distinctive keywords/claims from the content>"""
+    try:
+        response = await client.chat.completions.create(
+            model=MODELS[model_name],
+            messages=[{"role": "user", "content": prompt}]
+        )
+        text = response.choices[0].message.content
+        subject, keywords = "", []
+        for line in text.splitlines():
+            line = line.strip()
+            if line.upper().startswith("SUBJECT:"):
+                subject = line.split(":", 1)[1].strip()
+            elif line.upper().startswith("KEYWORDS:"):
+                keywords = [k.strip().lower() for k in line.split(":", 1)[1].split(",") if k.strip()]
+        return subject, keywords
+    except Exception:
+        return "", []
+
+
+async def simulate_query_for_model(query, subject, keywords, model_name):
+    """Run one simulated query against one model and check if the content's
+    subject/keywords surface in the answer."""
+    try:
+        answer = await get_answer(query, model_name)
+    except Exception:
+        return {"query": query, "matched": False, "response": ""}
+    answer_lower = answer.lower()
+    subject_hit = subject and subject.lower() in answer_lower
+    keyword_hits = sum(1 for k in keywords if k in answer_lower)
+    matched = bool(subject_hit or keyword_hits >= 2)
+    return {"query": query, "matched": matched, "response": answer[:300]}
+
+
+@app.options("/simulate-content")
+async def options_simulate():
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+
+@app.post("/simulate-content")
+async def simulate_content(file: UploadFile = File(...), models: str = Form(...)):
+    """
+    AI Content Simulator: before publishing, estimate how likely this content
+    is to surface in AI answers. This is a HEURISTIC estimate based on simulated
+    queries — not a guarantee, since these models aren't web-search-grounded and
+    haven't actually seen the unpublished content.
+    """
+    selected_models = [m.strip() for m in models.split(",") if m.strip() in MODELS]
+    if not selected_models:
+        selected_models = list(MODELS.keys())
+
+    file_bytes = await file.read()
+    content = extract_text(file_bytes, file.filename)
+
+    if not content:
+        return JSONResponse(
+            content={"error": "Could not extract text from this file."},
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+    primary_model = selected_models[0]
+    subject, keywords = await extract_core_subject(content, primary_model)
+    queries = await generate_likely_queries(content, primary_model)
+
+    if not queries:
+        return JSONResponse(
+            content={"error": "Could not generate simulated queries for this content."},
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+    per_model_results = {}
+    for model_name in selected_models:
+        tasks = [simulate_query_for_model(q, subject, keywords, model_name) for q in queries]
+        details = await asyncio.gather(*tasks)
+        matched = sum(1 for d in details if d["matched"])
+        score = round((matched / len(queries)) * 100)
+        per_model_results[model_name] = {"score": score, "details": details}
+
+    return JSONResponse(
+        content={
+            "subject": subject,
+            "keywords": keywords,
+            "queries": queries,
+            "models": per_model_results,
+            "disclaimer": "Estimated likelihood based on simulated queries — not a guaranteed outcome."
+        },
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
+
+
     return JSONResponse(
         content={"status": "AI Citation Tracker API Running"},
         headers={"Access-Control-Allow-Origin": "*"}
