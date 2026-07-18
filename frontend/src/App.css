@@ -455,6 +455,166 @@ button:disabled {
   .results-float::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 }
 
+.sim-section {
+  background: var(--panel);
+  border: 1px solid rgba(255,176,32,0.2);
+  border-radius: 16px;
+  padding: 2.2rem;
+  margin-bottom: 2rem;
+}
+
+.sim-heading {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sim-upload-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.sim-upload-card:hover {
+  border-color: var(--amber);
+}
+
+.sim-file-input {
+  display: none;
+}
+
+.sim-upload-text {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.sim-analyze-btn {
+  background: var(--text);
+  color: #0c0f0d;
+  border: none;
+  width: 100%;
+  padding: 1rem;
+  border-radius: 14px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sim-analyze-btn:hover {
+  background: #fff;
+}
+
+.sim-analyze-btn:disabled {
+  background: #333831;
+  color: var(--muted);
+}
+
+.sim-checklist {
+  margin-top: 2rem;
+}
+
+.sim-checklist-label {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  margin-bottom: 0.9rem;
+}
+
+.sim-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--text);
+  padding: 0.5rem 0;
+}
+
+.check-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(79,209,174,0.15);
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.sim-results {
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+}
+
+.sim-meta {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  text-transform: capitalize;
+  margin-bottom: 0.5rem;
+}
+
+.sim-disclaimer {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 1.2rem;
+}
+
+.sim-score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 1.2rem;
+}
+
+.sim-score-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.9rem;
+}
+
+.sim-score-model {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.sim-score-value {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.sim-queries {
+  font-family: var(--sans);
+}
+
+.sim-query-row {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+  padding: 3px 0;
+}
+
 .insights-toggle-btn {
   background: transparent;
   border: 1px dashed var(--amber);
