@@ -13,6 +13,10 @@ const [queries, setQueries] = useState("")
   const [errorMsg, setErrorMsg] = useState(null)
   const [openReplay, setOpenReplay] = useState(null) // "brand|model|idx" key of the open chip
   const [showInsights, setShowInsights] = useState(false)
+  const [simFile, setSimFile] = useState(null)
+  const [simLoading, setSimLoading] = useState(false)
+  const [simResults, setSimResults] = useState(null)
+  const [simError, setSimError] = useState(null)
 
   const toggleModel = (model) => {
     setSelectedModels(prev =>
@@ -46,6 +50,36 @@ const [queries, setQueries] = useState("")
       setErrorMsg("Error connecting to backend. Please try again.")
     }
     setLoading(false)
+  }
+
+  const handleSimulate = async () => {
+    if (!simFile) {
+      setSimError("Please choose a PDF or text file first.")
+      return
+    }
+    setSimLoading(true)
+    setSimResults(null)
+    setSimError(null)
+
+    const formData = new FormData()
+    formData.append("file", simFile)
+    formData.append("models", selectedModels.join(","))
+
+    try {
+      const res = await fetch("https://geo-citation-tracker-production.up.railway.app/simulate-content", {
+        method: "POST",
+        body: formData
+      })
+      const data = await res.json()
+      if (data.error) {
+        setSimError(data.error)
+      } else {
+        setSimResults(data)
+      }
+    } catch (err) {
+      setSimError("Error connecting to backend. Please try again.")
+    }
+    setSimLoading(false)
   }
 
   const getColor = (score) => {
@@ -144,6 +178,74 @@ const [queries, setQueries] = useState("")
         <button onClick={trackNow} disabled={loading}>
           {loading ? "⏳ Tracking..." : "🚀 Track Now"}
         </button>
+      </div>
+
+      {/* AI CONTENT SIMULATOR */}
+      <div className="sim-section">
+        <div className="eyebrow" style={{ marginBottom: '0.6rem' }}>
+          <span className="dot"></span>AI Content Simulator
+        </div>
+        <h2 className="sim-heading">Predict before you publish</h2>
+        <p className="subtitle" style={{ marginBottom: '1.6rem', marginTop: '0.4rem' }}>
+          Upload a blog or article — see its odds of surfacing in AI answers.
+        </p>
+
+        <label className="sim-upload-card">
+          <input
+            type="file"
+            accept=".pdf,.txt"
+            onChange={e => setSimFile(e.target.files[0])}
+            className="sim-file-input"
+          />
+          <span className="sim-upload-text">
+            {simFile ? simFile.name : "Choose a PDF or .txt file"}
+          </span>
+        </label>
+
+        <button className="sim-analyze-btn" onClick={handleSimulate} disabled={simLoading}>
+          {simLoading ? "⏳ Simulating..." : "🔮 Predict AI Visibility"}
+        </button>
+
+        {!simResults && !simError && (
+          <div className="sim-checklist">
+            <div className="sim-checklist-label">Get insights into:</div>
+            <div className="sim-check-item"><span className="check-icon">✓</span>AI Visibility Score</div>
+            <div className="sim-check-item"><span className="check-icon">✓</span>Detected Subject &amp; Keywords</div>
+            <div className="sim-check-item"><span className="check-icon">✓</span>Simulated Query Match</div>
+            <div className="sim-check-item"><span className="check-icon">✓</span>Per-Model Breakdown</div>
+          </div>
+        )}
+
+        {simError && <div className="error-banner" style={{ marginTop: '1rem' }}>⚠️ {simError}</div>}
+
+        {simResults && (
+          <div className="sim-results">
+            <div className="sim-meta">
+              <span className="weakness-label strong" style={{ marginRight: 6 }}>Detected subject:</span>
+              {simResults.subject || "unknown"}
+            </div>
+            <div className="sim-disclaimer">{simResults.disclaimer}</div>
+
+            <div className="sim-score-grid">
+              {Object.entries(simResults.models).map(([modelName, data]) => (
+                <div className="sim-score-card" key={modelName}>
+                  <div className="sim-score-model">{modelName}</div>
+                  <div className="sim-score-value" style={{ color: getColor(data.score) }}>{data.score}%</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${data.score}%`, background: getColor(data.score) }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="sim-queries">
+              <div className="weakness-title" style={{ marginBottom: '0.6rem' }}>Simulated queries used</div>
+              {simResults.queries.map((q, qi) => (
+                <div key={qi} className="sim-query-row">"{q}"</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {errorMsg && <div className="error-banner">⚠️ {errorMsg}</div>}
