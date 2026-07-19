@@ -465,6 +465,37 @@ async def get_history(brand: str, model: str | None = None):
         return JSONResponse(content={"history": [], "error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
 
 
+def _cors_options():
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+
+@app.options("/action-plan")
+async def options_action_plan():
+    return _cors_options()
+
+
+@app.options("/generate-reddit-strategy")
+async def options_reddit():
+    return _cors_options()
+
+
+@app.options("/generate-blog")
+async def options_blog():
+    return _cors_options()
+
+
+@app.options("/source-coverage")
+async def options_coverage():
+    return _cors_options()
+
+
 class FixPlanRequest(BaseModel):
     brand: str
     weak_topics: list[str]
