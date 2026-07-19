@@ -31,6 +31,18 @@ const [queries, setQueries] = useState("")
   const [compareData, setCompareData] = useState(null)
   const [compareLoading, setCompareLoading] = useState(false)
 
+  // --- Action Plan / Fix Plan tab state ---
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planData, setPlanData] = useState(null)
+  const [planError, setPlanError] = useState(null)
+  const [planBrandIdx, setPlanBrandIdx] = useState(0)
+  const [genLoadingKey, setGenLoadingKey] = useState(null) // "reddit|topic" or "blog|topic"
+  const [genResults, setGenResults] = useState({}) // { "reddit|topic": {...}, "blog|topic": {...} }
+  const [coverageQuery, setCoverageQuery] = useState("")
+  const [coverageLoading, setCoverageLoading] = useState(false)
+  const [coverageData, setCoverageData] = useState(null)
+  const [coverageError, setCoverageError] = useState(null)
+
   const toggleModel = (model) => {
     setSelectedModels(prev =>
       prev.includes(model)
@@ -159,6 +171,91 @@ const [queries, setQueries] = useState("")
     return Object.values(byTime)
   }
 
+  const fetchActionPlan = async () => {
+    if (!results || !results[planBrandIdx]) return
+    const brandData = results[planBrandIdx]
+    const weakTopics = brandData.weakness_profile?.weak || []
+    if (weakTopics.length === 0) {
+      setPlanError("No weak topics found for this brand — run a track with AI Insights first.")
+      return
+    }
+    setPlanLoading(true)
+    setPlanError(null)
+    setPlanData(null)
+    try {
+      const res = await fetch(`${API_BASE}/action-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: brandData.brand, weak_topics: weakTopics, model: selectedModels[0] || "LLaMA 3.3" })
+      })
+      const data = await res.json()
+      if (data.error) {
+        setPlanError(data.error)
+      } else {
+        setPlanData(data.plans || [])
+      }
+    } catch (err) {
+      setPlanError("Error connecting to backend. Please try again.")
+    }
+    setPlanLoading(false)
+  }
+
+  const generateReddit = async (topic) => {
+    const key = `reddit|${topic}`
+    setGenLoadingKey(key)
+    try {
+      const res = await fetch(`${API_BASE}/generate-reddit-strategy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: results[planBrandIdx].brand, topic, model: selectedModels[0] || "LLaMA 3.3" })
+      })
+      const data = await res.json()
+      setGenResults(prev => ({ ...prev, [key]: data }))
+    } catch (err) {
+      setGenResults(prev => ({ ...prev, [key]: { error: "Failed to generate. Try again." } }))
+    }
+    setGenLoadingKey(null)
+  }
+
+  const generateBlog = async (topic) => {
+    const key = `blog|${topic}`
+    setGenLoadingKey(key)
+    try {
+      const res = await fetch(`${API_BASE}/generate-blog`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: results[planBrandIdx].brand, topic, model: selectedModels[0] || "LLaMA 3.3" })
+      })
+      const data = await res.json()
+      setGenResults(prev => ({ ...prev, [key]: data }))
+    } catch (err) {
+      setGenResults(prev => ({ ...prev, [key]: { error: "Failed to generate. Try again." } }))
+    }
+    setGenLoadingKey(null)
+  }
+
+  const fetchSourceCoverage = async () => {
+    if (!results || !results[planBrandIdx] || !coverageQuery.trim()) {
+      setCoverageError("Enter a query first.")
+      return
+    }
+    setCoverageLoading(true)
+    setCoverageError(null)
+    setCoverageData(null)
+    try {
+      const res = await fetch(`${API_BASE}/source-coverage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: results[planBrandIdx].brand, query: coverageQuery.trim() })
+      })
+      const data = await res.json()
+      setCoverageData(data)
+    } catch (err) {
+      setCoverageError("Error connecting to backend. Please try again.")
+    }
+    setCoverageLoading(false)
+  }
+
   const getColor = (score) => {
     if (score >= 60) return "#4fd1ae"
     if (score >= 30) return "#ffb020"
@@ -238,6 +335,12 @@ const [queries, setQueries] = useState("")
           onClick={() => { setActiveTab('history'); fetchPastRuns() }}
         >
           📈 History
+        </button>
+        <button
+          className={`model-chip ${activeTab === 'plan' ? 'active' : ''}`}
+          onClick={() => setActiveTab('plan')}
+        >
+          🎯 Fix Plan
         </button>
       </div>
 
@@ -329,6 +432,142 @@ const [queries, setQueries] = useState("")
                   ))}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'plan' && (
+        <div className="input-section">
+          <div className="eyebrow" style={{ marginBottom: '0.6rem' }}>
+            <span className="dot"></span>Fix plan — prioritized, with estimated impact
+          </div>
+
+          {!results && (
+            <div className="error-banner">⚠️ Run a Track first (with AI Insights shown) so weak topics are available.</div>
+          )}
+
+          {results && (
+            <>
+              <div className="input-group">
+                <label>Brand</label>
+                <select value={planBrandIdx} onChange={e => setPlanBrandIdx(Number(e.target.value))} className="model-chip" style={{ width: '100%', textAlign: 'left' }}>
+                  {results.map((r, i) => (
+                    <option key={i} value={i}>{r.brand}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={fetchActionPlan} disabled={planLoading}>
+                {planLoading ? "⏳ Generating..." : "🎯 Generate Fix Plan"}
+              </button>
+            </>
+          )}
+
+          {planError && <div className="error-banner">⚠️ {planError}</div>}
+
+          {planData && (
+            <div className="results" style={{ marginTop: '1.5rem' }}>
+              {planData.map((p, i) => {
+                const redditKey = `reddit|${p.topic}`
+                const blogKey = `blog|${p.topic}`
+                return (
+                  <div className="brand-card" key={i}>
+                    <h2>Priority {p.priority} · {p.topic}</h2>
+                    <div className="weakness-panel" style={{ flexDirection: 'column', gap: '0.8rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="weakness-label strong">{p.action_type}</span>
+                        <span style={{ color: '#4fd1ae', fontWeight: 700 }}>{p.estimated_impact}</span>
+                      </div>
+                      <div className="weakness-tag empty">{p.content_idea}</div>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        {(p.distribution || []).map((d, di) => (
+                          <div key={di} className="weakness-tag weak">{d}</div>
+                        ))}
+                      </div>
+                      <div className="sim-disclaimer">{p.reasoning} — estimated, not measured</div>
+
+                      <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.4rem' }}>
+                        <button onClick={() => generateReddit(p.topic)} disabled={genLoadingKey === redditKey} className="insights-toggle-btn" style={{ flex: 1 }}>
+                          {genLoadingKey === redditKey ? "⏳..." : "🧵 Generate Reddit Strategy"}
+                        </button>
+                        <button onClick={() => generateBlog(p.topic)} disabled={genLoadingKey === blogKey} className="insights-toggle-btn" style={{ flex: 1 }}>
+                          {genLoadingKey === blogKey ? "⏳..." : "📝 Generate Blog"}
+                        </button>
+                      </div>
+
+                      {genResults[redditKey] && !genResults[redditKey].error && (
+                        <div className="replay-panel">
+                          <div className="replay-badge">Reddit strategy</div>
+                          <div className="replay-row"><strong>Subreddits:</strong> {(genResults[redditKey].subreddits || []).join(', ')}</div>
+                          <div className="replay-row"><strong>Tone:</strong> {genResults[redditKey].tone}</div>
+                          <div className="replay-row"><strong>Avoid:</strong> {genResults[redditKey].avoid}</div>
+                          <div className="replay-row"><strong>Question to answer:</strong> {genResults[redditKey].question_to_answer}</div>
+                          <div className="replay-row"><strong>Sample opening:</strong> "{genResults[redditKey].sample_opening_line}"</div>
+                        </div>
+                      )}
+                      {genResults[blogKey] && !genResults[blogKey].error && (
+                        <div className="replay-panel">
+                          <div className="replay-badge">Blog plan</div>
+                          <div className="replay-row"><strong>Title:</strong> {genResults[blogKey].title}</div>
+                          <div className="replay-row"><strong>Outline:</strong> {(genResults[blogKey].outline || []).join(' → ')}</div>
+                          <div className="replay-row"><strong>Schema:</strong> {genResults[blogKey].schema_notes}</div>
+                          <div className="replay-row"><strong>Internal links:</strong> {genResults[blogKey].internal_links}</div>
+                          <div className="replay-row"><strong>External citations:</strong> {genResults[blogKey].external_citations}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="eyebrow" style={{ marginTop: '2.5rem', marginBottom: '0.6rem' }}>
+            <span className="dot"></span>Source coverage
+          </div>
+
+          {results && (
+            <>
+              <div className="input-group">
+                <label>Query to check ({results[planBrandIdx]?.brand})</label>
+                <input value={coverageQuery} onChange={e => setCoverageQuery(e.target.value)} placeholder="e.g. best sunscreen for oily skin in India" />
+              </div>
+              <button onClick={fetchSourceCoverage} disabled={coverageLoading}>
+                {coverageLoading ? "⏳ Checking..." : "🔎 Check Source Coverage"}
+              </button>
+            </>
+          )}
+
+          {coverageError && <div className="error-banner">⚠️ {coverageError}</div>}
+
+          {coverageData && !coverageData.available && (
+            <div className="error-banner" style={{ marginTop: '1rem' }}>
+              🔒 {coverageData.message}
+            </div>
+          )}
+
+          {coverageData && coverageData.available && (
+            <div className="weakness-panel" style={{ flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+              <div>
+                <span className="weakness-label strong">ChatGPT/AI found</span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                  {(coverageData.sources_found || []).map((s, i) => <div key={i} className="weakness-tag strong">{s}</div>)}
+                </div>
+              </div>
+              <div>
+                <span className="weakness-label strong">Brand appears in</span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                  {(coverageData.brand_appears_in || []).length > 0
+                    ? coverageData.brand_appears_in.map((s, i) => <div key={i} className="weakness-tag strong">{s}</div>)
+                    : <div className="weakness-tag weak">✗ Nowhere found</div>}
+                </div>
+              </div>
+              <div>
+                <span className="weakness-label weak">Missing</span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                  {(coverageData.missing || []).map((s, i) => <div key={i} className="weakness-tag weak">✗ {s}</div>)}
+                </div>
+              </div>
             </div>
           )}
         </div>

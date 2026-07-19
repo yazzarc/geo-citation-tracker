@@ -24,6 +24,48 @@ MODELS = {
     "LLaMA 3.1": "llama-3.1-8b-instant",
 }
 
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+import httpx
+
+
+async def get_web_sources(brand: str, query: str):
+    """
+    Real, search-grounded source coverage — where the brand actually shows up
+    for a query, what's missing, what independent sources rank for it.
+    Only works once PERPLEXITY_API_KEY is set. Until then, returns available=False
+    so the frontend can show an honest "not connected yet" state instead of fake data.
+    """
+    if not PERPLEXITY_API_KEY:
+        return {"available": False}
+
+    prompt = f"""Search for: "{query}"
+Does the brand "{brand}" show up in the results? Answer ONLY as JSON, no preamble, no markdown fences:
+{{
+  "sources_found": ["list of 4-6 real domain names/source types that show up, e.g. Healthline, Reddit, Nykaa, dermatologist blogs"],
+  "brand_appears_in": ["where {brand} specifically appears, e.g. Official website only — or [] if nowhere"],
+  "missing": ["content types {brand} is missing that competitors/top sources have, e.g. Comparison article, Reddit discussion, Quora answers, Independent reviews"]
+}}"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as http_client:
+            resp = await http_client.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers={"Authorization": f"Bearer {PERPLEXITY_API_KEY}"},
+                json={
+                    "model": "sonar",
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            import json as _json
+            content = data["choices"][0]["message"]["content"]
+            parsed = _json.loads(content)
+            parsed["available"] = True
+            return parsed
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
 class TrackRequest(BaseModel):
     brands: list[str]
     queries: list[str]
@@ -421,3 +463,147 @@ async def get_history(brand: str, model: str | None = None):
         return JSONResponse(content={"history": res.data}, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return JSONResponse(content={"history": [], "error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+class FixPlanRequest(BaseModel):
+    brand: str
+    weak_topics: list[str]
+    model: str = "LLaMA 3.3"
+
+
+@app.post("/action-plan")
+async def fix_plan(req: FixPlanRequest):
+    """
+    Fix Plan: takes a brand's weak topics and returns a PRIORITIZED list —
+    what to create/answer/publish first, with an estimated impact per item.
+    Impact numbers are LLM-estimated, not measured — labeled as such in the UI.
+    """
+    if not req.weak_topics:
+        return JSONResponse(content={"error": "No weak topics provided."}, headers={"Access-Control-Allow-Origin": "*"})
+
+    model_id = MODELS.get(req.model, MODELS["LLaMA 3.3"])
+    topics_str = "\n".join(f"- {t}" for t in req.weak_topics)
+
+    prompt = f"""Brand: {req.brand}
+This brand is weak (not showing up) in AI answers for these topics:
+{topics_str}
+
+Build a prioritized fix plan — rank items by how much they'd likely improve visibility, highest impact first.
+Respond ONLY as JSON, no preamble, no markdown fences:
+{{
+  "plans": [
+    {{
+      "priority": 1,
+      "topic": "...",
+      "action_type": "Create | Answer | Publish",
+      "content_idea": "one specific piece of content (headline-level, concrete)",
+      "distribution": ["2-3 short channel names, e.g. Reddit thread, comparison blog post, Quora answer"],
+      "estimated_impact": "rough visibility gain estimate, e.g. +18%",
+      "reasoning": "one sentence on why this closes the gap"
+    }}
+  ]
+}}
+Order the "plans" array by priority (1 = do first, highest impact)."""
+
+    try:
+        response = await client.chat.completions.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        import json
+        data = json.loads(response.choices[0].message.content)
+        return JSONResponse(content=data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+class RedditStrategyRequest(BaseModel):
+    brand: str
+    topic: str
+    model: str = "LLaMA 3.3"
+
+
+@app.post("/generate-reddit-strategy")
+async def generate_reddit_strategy(req: RedditStrategyRequest):
+    """Suggests where/how to engage on Reddit for a weak topic — subreddit, tone, angle, non-promotional framing."""
+    model_id = MODELS.get(req.model, MODELS["LLaMA 3.3"])
+    prompt = f"""Brand: {req.brand}
+Weak topic: {req.topic}
+
+Suggest a Reddit engagement strategy. Respond ONLY as JSON, no preamble, no markdown fences:
+{{
+  "subreddits": ["2-3 relevant subreddit names, without r/ prefix"],
+  "tone": "one short phrase describing the tone to use",
+  "avoid": "one short phrase on what NOT to do (e.g. don't sound promotional)",
+  "question_to_answer": "a realistic question/thread angle worth answering",
+  "sample_opening_line": "one honest, non-salesy opening line for the reply"
+}}"""
+    try:
+        response = await client.chat.completions.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        import json
+        data = json.loads(response.choices[0].message.content)
+        return JSONResponse(content=data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+class BlogGenRequest(BaseModel):
+    brand: str
+    topic: str
+    model: str = "LLaMA 3.3"
+
+
+@app.post("/generate-blog")
+async def generate_blog(req: BlogGenRequest):
+    """Generates an SEO/AI-optimized blog outline (with schema + citation notes) for a weak topic."""
+    model_id = MODELS.get(req.model, MODELS["LLaMA 3.3"])
+    prompt = f"""Brand: {req.brand}
+Weak topic: {req.topic}
+
+Write a blog plan optimized for both SEO and AI-answer visibility. Respond ONLY as JSON, no preamble, no markdown fences:
+{{
+  "title": "SEO-optimized blog title",
+  "outline": ["5-7 section headings in order"],
+  "schema_notes": "what structured data/schema markup to add, e.g. FAQ schema, Product schema",
+  "internal_links": "what kind of internal pages to link to",
+  "external_citations": "what kind of external sources to cite for credibility"
+}}"""
+    try:
+        response = await client.chat.completions.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        import json
+        data = json.loads(response.choices[0].message.content)
+        return JSONResponse(content=data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+class SourceCoverageRequest(BaseModel):
+    brand: str
+    query: str
+
+
+@app.post("/source-coverage")
+async def source_coverage(req: SourceCoverageRequest):
+    """
+    Real search-grounded source coverage (Perplexity-backed). Returns available=False
+    with an honest message until PERPLEXITY_API_KEY is set — no fake numbers.
+    """
+    data = await get_web_sources(req.brand, req.query)
+    if not data.get("available"):
+        return JSONResponse(
+            content={
+                "available": False,
+                "message": data.get("error") or "Source Coverage needs a Perplexity API key to show real search-grounded data. Add PERPLEXITY_API_KEY to enable it."
+            },
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    return JSONResponse(content=data, headers={"Access-Control-Allow-Origin": "*"})
