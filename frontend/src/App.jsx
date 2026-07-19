@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import './App.css'
 
 const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1", "LLaMA 4 Scout"]
+const API_BASE = "https://geo-citation-tracker-production.up.railway.app"
 
 function App() {
   const [brands, setBrands] = useState("")
@@ -17,6 +18,18 @@ const [queries, setQueries] = useState("")
   const [simLoading, setSimLoading] = useState(false)
   const [simResults, setSimResults] = useState(null)
   const [simError, setSimError] = useState(null)
+
+  // --- History tab state ---
+  const [activeTab, setActiveTab] = useState("track") // "track" | "history"
+  const [historyBrand, setHistoryBrand] = useState("")
+  const [historyData, setHistoryData] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState(null)
+  const [pastRuns, setPastRuns] = useState([])
+  const [compareA, setCompareA] = useState("")
+  const [compareB, setCompareB] = useState("")
+  const [compareData, setCompareData] = useState(null)
+  const [compareLoading, setCompareLoading] = useState(false)
 
   const toggleModel = (model) => {
     setSelectedModels(prev =>
@@ -39,7 +52,7 @@ const [queries, setQueries] = useState("")
     const queryList = queries.split("\n").map(q => q.trim()).filter(q => q)
 
     try {
-      const res = await fetch("https://geo-citation-tracker-production.up.railway.app/track", {
+      const res = await fetch(`${API_BASE}/track`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brands: brandList, queries: queryList, models: selectedModels })
@@ -66,7 +79,7 @@ const [queries, setQueries] = useState("")
     formData.append("models", selectedModels.join(","))
 
     try {
-      const res = await fetch("https://geo-citation-tracker-production.up.railway.app/simulate-content", {
+      const res = await fetch(`${API_BASE}/simulate-content`, {
         method: "POST",
         body: formData
       })
@@ -80,6 +93,70 @@ const [queries, setQueries] = useState("")
       setSimError("Error connecting to backend. Please try again.")
     }
     setSimLoading(false)
+  }
+
+  const fetchHistory = async () => {
+    if (!historyBrand.trim()) {
+      setHistoryError("Enter a brand name first.")
+      return
+    }
+    setHistoryLoading(true)
+    setHistoryError(null)
+    setHistoryData(null)
+    try {
+      const res = await fetch(`${API_BASE}/history?brand=${encodeURIComponent(historyBrand.trim())}`)
+      const data = await res.json()
+      if (data.error) {
+        setHistoryError(data.error)
+      } else if (!data.history || data.history.length === 0) {
+        setHistoryError("No history found for this brand yet — track it at least once.")
+      } else {
+        setHistoryData(data.history)
+      }
+    } catch (err) {
+      setHistoryError("Error connecting to backend. Please try again.")
+    }
+    setHistoryLoading(false)
+  }
+
+  const fetchPastRuns = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/runs`)
+      const data = await res.json()
+      setPastRuns(data.runs || [])
+    } catch (err) {
+      // silent — the runs dropdown just stays empty
+    }
+  }
+
+  const fetchCompare = async () => {
+    if (!compareA || !compareB) return
+    setCompareLoading(true)
+    setCompareData(null)
+    try {
+      const [resA, resB] = await Promise.all([
+        fetch(`${API_BASE}/runs/${compareA}`),
+        fetch(`${API_BASE}/runs/${compareB}`)
+      ])
+      const dataA = await resA.json()
+      const dataB = await resB.json()
+      setCompareData({ a: dataA, b: dataB })
+    } catch (err) {
+      // keep it simple — leave compareData null on failure
+    }
+    setCompareLoading(false)
+  }
+
+  const getHistoryChartData = () => {
+    if (!historyData) return []
+    // group by created_at (rounded to the run), one row per timestamp, one line per model
+    const byTime = {}
+    historyData.forEach(row => {
+      const t = new Date(row.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      if (!byTime[t]) byTime[t] = { time: t }
+      byTime[t][row.model] = row.score
+    })
+    return Object.values(byTime)
   }
 
   const getColor = (score) => {
@@ -149,6 +226,115 @@ const [queries, setQueries] = useState("")
         <div className="scan-rule"></div>
       </div>
 
+      <div className="tab-switcher" style={{ display: 'flex', gap: '10px', justifyContent: 'center', margin: '1.5rem 0' }}>
+        <button
+          className={`model-chip ${activeTab === 'track' ? 'active' : ''}`}
+          onClick={() => setActiveTab('track')}
+        >
+          🚀 Track
+        </button>
+        <button
+          className={`model-chip ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('history'); fetchPastRuns() }}
+        >
+          📈 History
+        </button>
+      </div>
+
+      {activeTab === 'history' && (
+        <div className="input-section">
+          <div className="eyebrow" style={{ marginBottom: '0.6rem' }}>
+            <span className="dot"></span>Score over time
+          </div>
+
+          <div className="input-group">
+            <label>Brand name</label>
+            <input value={historyBrand} onChange={e => setHistoryBrand(e.target.value)} placeholder="e.g. nike" />
+          </div>
+          <button onClick={fetchHistory} disabled={historyLoading}>
+            {historyLoading ? "⏳ Loading..." : "📊 Show Trend"}
+          </button>
+
+          {historyError && <div className="error-banner">⚠️ {historyError}</div>}
+
+          {historyData && (
+            <div className="chart-section" style={{ marginTop: '1.5rem' }}>
+              <div className="chart-header">
+                <h3>{historyBrand} — visibility over time</h3>
+                <p className="chart-sub">Score per model across past runs</p>
+              </div>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={getHistoryChartData()} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                  <XAxis dataKey="time" tick={{ fill: '#8a9186', fontSize: 11, fontFamily: 'IBM Plex Mono' }} axisLine={{ stroke: '#23291f' }} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#8a9186', fontSize: 11, fontFamily: 'IBM Plex Mono' }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip
+                    contentStyle={{ background: '#0e120f', border: '1px solid #23291f', borderRadius: '6px', padding: '10px 16px', fontFamily: 'IBM Plex Mono' }}
+                    labelStyle={{ color: '#f2ede2', fontWeight: 700, marginBottom: 6 }}
+                    itemStyle={{ color: '#cfd3c9', fontSize: 13 }}
+                  />
+                  <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono', fontSize: 12 }} />
+                  {AVAILABLE_MODELS.map(model => (
+                    <Line key={model} type="monotone" dataKey={model} stroke={modelColors[model]} strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <div className="eyebrow" style={{ marginTop: '2.5rem', marginBottom: '0.6rem' }}>
+            <span className="dot"></span>Compare two runs
+          </div>
+
+          <div className="input-group">
+            <label>Run A</label>
+            <select value={compareA} onChange={e => setCompareA(e.target.value)} className="model-chip" style={{ width: '100%', textAlign: 'left' }}>
+              <option value="">Select a run...</option>
+              {pastRuns.map(r => (
+                <option key={r.id} value={r.id}>
+                  {new Date(r.created_at).toLocaleString('en-IN')} — {r.brands.join(', ')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="input-group">
+            <label>Run B</label>
+            <select value={compareB} onChange={e => setCompareB(e.target.value)} className="model-chip" style={{ width: '100%', textAlign: 'left' }}>
+              <option value="">Select a run...</option>
+              {pastRuns.map(r => (
+                <option key={r.id} value={r.id}>
+                  {new Date(r.created_at).toLocaleString('en-IN')} — {r.brands.join(', ')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button onClick={fetchCompare} disabled={compareLoading || !compareA || !compareB}>
+            {compareLoading ? "⏳ Comparing..." : "⚖️ Compare Runs"}
+          </button>
+
+          {compareData && (
+            <div className="results" style={{ marginTop: '1.5rem' }}>
+              {['a', 'b'].map(side => (
+                <div className="brand-card" key={side}>
+                  <h2>Run {side.toUpperCase()} — {new Date(compareData[side].run.created_at).toLocaleString('en-IN')}</h2>
+                  {compareData[side].results.map((r, idx) => (
+                    <div className="model-row" key={idx}>
+                      <div className="model-header">
+                        <span>{r.brand} · {r.model}</span>
+                        <span style={{ color: getColor(r.score) }}>{r.score}%</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${r.score}%`, backgroundColor: getColor(r.score) }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'track' && (
       <div className="input-section">
         <div className="input-group">
           <label>Brands (comma separated)</label>
@@ -179,7 +365,10 @@ const [queries, setQueries] = useState("")
           {loading ? "⏳ Tracking..." : "🚀 Track Now"}
         </button>
       </div>
+      )}
 
+      {activeTab === 'track' && (
+      <>
       {/* AI CONTENT SIMULATOR */}
       <div className="sim-section">
         <div className="eyebrow" style={{ marginBottom: '0.6rem' }}>
@@ -424,6 +613,8 @@ const [queries, setQueries] = useState("")
             📥 Download CSV Report
           </button>
         </div>
+      )}
+      </>
       )}
     </div>
   )
