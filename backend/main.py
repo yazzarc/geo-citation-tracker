@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from groq import AsyncGroq
 from dotenv import load_dotenv
+from supabase import create_client, Client
 import os
 import asyncio
 import io
@@ -13,6 +14,10 @@ load_dotenv()
 app = FastAPI()
 
 client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client | None = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
 
 MODELS = {
     "LLaMA 3.3": "llama-3.3-70b-versatile",
@@ -341,7 +346,78 @@ async def track(req: TrackRequest, include_replay: bool = True, include_weakness
         for brand in req.brands:
             results[brand]["weakness_profile"] = build_weakness_profile(brand, query_topics, all_details_by_query)
 
+    run_id = None
+    if supabase:
+        try:
+            run_row = supabase.table("runs").insert({
+                "brands": req.brands,
+                "queries": req.queries,
+                "models": req.models,
+            }).execute()
+            run_id = run_row.data[0]["id"]
+
+            result_rows = []
+            for brand in req.brands:
+                for model_name, model_data in results[brand]["models"].items():
+                    mentioned_count = sum(1 for d in model_data["details"] if d["mentioned"])
+                    result_rows.append({
+                        "run_id": run_id,
+                        "brand": brand,
+                        "model": model_name,
+                        "score": model_data["score"],
+                        "mentioned_count": mentioned_count,
+                        "total_queries": len(req.queries),
+                    })
+            if result_rows:
+                supabase.table("results").insert(result_rows).execute()
+        except Exception as e:
+            # persistence failure should never break the actual tracking response
+            print(f"Supabase save failed: {e}")
+
     return JSONResponse(
-        content={"results": list(results.values())},
+        content={"results": list(results.values()), "run_id": run_id},
         headers={"Access-Control-Allow-Origin": "*"}
     )
+
+
+@app.get("/runs")
+async def get_runs(limit: int = 20):
+    """List past runs, most recent first."""
+    if not supabase:
+        return JSONResponse(content={"runs": []}, headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        res = supabase.table("runs").select("*").order("created_at", desc=True).limit(limit).execute()
+        return JSONResponse(content={"runs": res.data}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return JSONResponse(content={"runs": [], "error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+@app.get("/runs/{run_id}")
+async def get_run_detail(run_id: str):
+    """Full results for one past run — used for run-to-run comparison."""
+    if not supabase:
+        return JSONResponse(content={"error": "No database configured."}, headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        run_res = supabase.table("runs").select("*").eq("id", run_id).single().execute()
+        results_res = supabase.table("results").select("*").eq("run_id", run_id).execute()
+        return JSONResponse(
+            content={"run": run_res.data, "results": results_res.data},
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+@app.get("/history")
+async def get_history(brand: str, model: str | None = None):
+    """Score-over-time for one brand (optionally filtered to one model) — feeds the trend line chart."""
+    if not supabase:
+        return JSONResponse(content={"history": []}, headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        query = supabase.table("results").select("score, model, created_at, run_id").eq("brand", brand)
+        if model:
+            query = query.eq("model", model)
+        res = query.order("created_at", desc=False).execute()
+        return JSONResponse(content={"history": res.data}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return JSONResponse(content={"history": [], "error": str(e)}, headers={"Access-Control-Allow-Origin": "*"})
