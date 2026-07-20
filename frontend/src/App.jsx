@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import { Hero } from '@/components/Hero'
 import './App.css'
 
 const AVAILABLE_MODELS = ["LLaMA 3.3", "LLaMA 3.1", "LLaMA 4 Scout"]
@@ -316,12 +317,10 @@ const [queries, setQueries] = useState("")
 
   return (
     <div className="app">
-      <div className="app-header">
-        <div className="eyebrow"><span className="dot"></span>Live signal tracking</div>
-        <h1>AI Citation Tracker</h1>
-        <p className="subtitle">Track your brand visibility across AI models</p>
-        <div className="scan-rule"></div>
-      </div>
+      <Hero onBeginInvestigation={() => {
+        setActiveTab('track')
+        document.getElementById('investigation-form')?.scrollIntoView({ behavior: 'smooth' })
+      }} />
 
       <div className="tab-switcher" style={{ display: 'flex', gap: '10px', justifyContent: 'center', margin: '1.5rem 0' }}>
         <button
@@ -574,7 +573,7 @@ const [queries, setQueries] = useState("")
       )}
 
       {activeTab === 'track' && (
-      <div className="input-section">
+      <div className="input-section" id="investigation-form">
         <div className="input-group">
           <label>Brands (comma separated)</label>
           <input value={brands} onChange={e => setBrands(e.target.value)} />
